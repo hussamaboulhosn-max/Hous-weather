@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Weather</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1f6fc2">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@400;500;600&family=Sora:wght@200;300;400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #f4f7fb;
+    --ink-soft: rgba(244,247,251,.68);
+    --line: rgba(244,247,251,.18);
+    --panel: rgba(10,18,32,.28);
+    --sky-a: #2b6cb0; --sky-b: #7fb7e6;
+    --display: "Sora", "Helvetica Neue", Arial, sans-serif;
+    --body: "Familjen Grotesk", "Helvetica Neue", Arial, sans-serif;
+  }
+  [data-sky="clear-day"]   { --sky-a:#1f6fc2; --sky-b:#8cc8f0; }
+  [data-sky="clear-night"] { --sky-a:#0b1530; --sky-b:#27386b; }
+  [data-sky="clouds-day"]  { --sky-a:#5b7088; --sky-b:#a9b9c9; }
+  [data-sky="clouds-night"]{ --sky-a:#161d2b; --sky-b:#3b475c; }
+  [data-sky="rain-day"],[data-sky="rain-night"] { --sky-a:#27384d; --sky-b:#5f7a93; }
+  [data-sky="storm-day"],[data-sky="storm-night"] { --sky-a:#1a1730; --sky-b:#4a4468; }
+  [data-sky="snow-day"],[data-sky="snow-night"] { --sky-a:#6d88a6; --sky-b:#d3e0ec; }
+  [data-sky="fog-day"],[data-sky="fog-night"] { --sky-a:#6b7480; --sky-b:#b8bec6; }
+
+  * { box-sizing: border-box; margin: 0; }
+  html, body { min-height: 100%; }
+  :root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+  body {
+    font-family: var(--body); color: var(--ink);
+    background: linear-gradient(170deg, var(--sky-a), var(--sky-b)) fixed;
+    transition: background 1s ease;
+    min-height: 100vh;
+  }
+  main { max-width: 880px; margin: 0 auto; padding: 28px 22px 56px; }
+
+  form { display: flex; gap: 10px; align-items: center; }
+  input[type=search] {
+    flex: 1; min-width: 0; font: inherit; font-size: 1rem; color: var(--ink);
+    background: var(--panel); border: 1px solid var(--line); border-radius: 999px;
+    padding: 12px 18px; outline: none;
+  }
+  input::placeholder { color: var(--ink-soft); }
+  input:focus-visible, button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  button {
+    font: inherit; color: var(--ink); cursor: pointer;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 12px 18px;
+  }
+  button:hover { background: rgba(10,18,32,.42); }
+  .units { display: inline-flex; padding: 0; overflow: hidden; }
+  .units span { padding: 12px 14px; color: var(--ink-soft); }
+  .units span.on { background: var(--ink); color: #15202f; font-weight: 600; }
+
+  #status { min-height: 1.4em; margin: 14px 4px 0; color: var(--ink-soft); font-size: .95rem; }
+  #status.error { color: #ffd7d0; }
+
+  .hero { padding: 34px 4px 10px; display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 12px; }
+  .place { font-size: 1.15rem; font-weight: 500; }
+  .when { color: var(--ink-soft); font-size: .95rem; margin-top: 2px; }
+  .temp {
+    font-family: var(--display); font-weight: 200; line-height: .9;
+    font-size: clamp(6rem, 24vw, 12rem); letter-spacing: -.04em; margin-top: 10px;
+  }
+  .temp sup { font-size: .22em; font-weight: 300; letter-spacing: 0; vertical-align: top; position: relative; top: .5em; margin-left: .06em; }
+  .cond { font-size: 1.4rem; font-weight: 500; margin-top: 10px; }
+  .feels { color: var(--ink-soft); margin-top: 2px; }
+  .hero-icon svg { width: clamp(88px, 18vw, 150px); height: auto; }
+
+  section { margin-top: 30px; }
+  h2 { font-size: 1rem; font-weight: 500; color: var(--ink-soft); margin: 0 4px 10px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; backdrop-filter: blur(6px); }
+
+  .hourly { display: flex; overflow-x: auto; padding: 8px; }
+  .hour { flex: 1 0 84px; text-align: center; padding: 12px 6px; }
+  .hour + .hour { border-left: 1px solid var(--line); }
+  .hour .t { color: var(--ink-soft); font-size: .88rem; }
+  .hour svg { width: 34px; height: 34px; margin: 8px 0; }
+  .hour .v { font-weight: 500; }
+
+  .daily { padding: 4px 18px; }
+  .day { display: grid; grid-template-columns: 4.5rem 36px 1fr auto; gap: 14px; align-items: center; padding: 12px 0; }
+  .day + .day { border-top: 1px solid var(--line); }
+  .day svg { width: 30px; height: 30px; }
+  .day .name { font-weight: 500; }
+  .day .desc { color: var(--ink-soft); font-size: .92rem; }
+  .day .range { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .day .range i { font-style: normal; color: var(--ink-soft); margin-right: 8px; }
+
+  .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 0; }
+  .fact { padding: 16px 18px; }
+  .facts .fact { border-bottom: 1px solid var(--line); }
+  .fact .k { color: var(--ink-soft); font-size: .9rem; }
+  .fact .v { font-size: 1.35rem; font-weight: 500; margin-top: 4px; font-variant-numeric: tabular-nums; }
+
+  .badge { display: inline-block; font-size: .82rem; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; color: var(--ink-soft); margin-top: 14px; }
+
+  @media (max-width: 520px) {
+    .day { grid-template-columns: 3.6rem 30px 1fr auto; gap: 10px; }
+    form { flex-wrap: wrap; }
+    input[type=search] { flex-basis: 100%; }
+  }
+  @media (prefers-reduced-motion: reduce) { body { transition: none; } }
+</style>
+</head>
+<body data-sky="clear-day">
+<main>
+  <form id="search">
+    <input type="search" id="q" placeholder="Search a city" aria-label="City" autocomplete="off">
+    <button type="submit">Search</button>
+    <button type="button" class="units" id="units" aria-label="Switch units"><span class="on" data-u="metric">°C</span><span data-u="imperial">°F</span></button>
+  </form>
+  <div id="status" role="status"></div>
+  <div id="out"></div>
+</main>
+
+<script>
+/* =========================================================
+   1. CONFIG — no key needed for the free, non-commercial tier
+   ========================================================= */
+const CONFIG = {
+  DEFAULT_CITY: "Beirut",
+  GEOCODE_URL:  "https://geocoding-api.open-meteo.com/v1/search",
+  FORECAST_URL: "https://ensemble-api.open-meteo.com/v1/ensemble",  // swap for Open-Meteo's paid endpoint for commercial use
+  MODEL: "google_weathernext2_ensemble"                             // Google WeatherNext 2
+};
+
+/* =========================================================
+   2. API ADAPTER — Open-Meteo serving Google WeatherNext 2
+   Returns (always metric: °C, m/s, hPa, mm):
+   { city, country, tz (s), now:{temp,feels,text,kind,isDay,wind,pressure,clouds,precip24},
+     sunrise, sunset (unix s), hourly:[{ts,temp,kind}], daily:[{ts,min,max,kind,text}] }
+   ========================================================= */
+const WMO = c =>
+  c === 0 ? ["clear", "clear sky"] : c === 1 ? ["clear", "mostly clear"] :
+  c === 2 ? ["clouds", "partly cloudy"] : c === 3 ? ["clouds", "overcast"] :
+  c === 45 || c === 48 ? ["fog", "fog"] :
+  c >= 51 && c <= 57 ? ["rain", "drizzle"] :
+  c >= 61 && c <= 67 ? ["rain", "rain"] :
+  c >= 71 && c <= 77 ? ["snow", "snow"] :
+  c >= 80 && c <= 82 ? ["rain", "rain showers"] :
+  c === 85 || c === 86 ? ["snow", "snow showers"] :
+  c >= 95 ? ["storm", "thunderstorm"] : ["clouds", "cloudy"];
+
+/* WeatherNext is an ensemble: each variable comes back once per member.
+   mean() averages every member; control() takes a single member. */
+function series(h, name) {
+  return Object.keys(h).filter(k => {
+    if (!k.startsWith(name)) return false;
+    const rest = k.slice(name.length);
+    return rest === "" || rest.startsWith("_member") || rest.startsWith("_google");
+  }).map(k => h[k]);
+}
+function mean(h, name) {
+  const all = series(h, name);
+  if (!all.length) throw new Error(`The forecast response had no "${name}" data.`);
+  return h.time.map((_, i) => {
+    const v = all.map(a => a[i]).filter(x => x != null);
+    return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
+  });
+}
+function control(h, name) {
+  const all = series(h, name);
+  if (!all.length) throw new Error(`The forecast response had no "${name}" data.`);
+  return all[0];
+}
+
+async function get(url) {
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 20000);
+  try {
+    return await fetch(url, { signal: ctl.signal });
+  } catch (e) {
+    throw new Error(e.name === "AbortError"
+      ? "The weather service took too long to answer. Try again."
+      : "Can't reach the weather service. If this page is open inside a preview, download it and open the file in your browser. Otherwise check your connection or turn off ad blockers for this page.");
+  } finally { clearTimeout(timer); }
+}
+
+async function fetchWeather(city) {
+  const g = await get(`${CONFIG.GEOCODE_URL}?name=${encodeURIComponent(city)}&count=1&language=en&format=json`);
+  if (!g.ok) throw new Error("The location search didn't respond. Try again in a moment.");
+  const place = (await g.json()).results?.[0];
+  if (!place) throw new Error(`Couldn't find "${city}". Check the spelling or try a larger nearby city.`);
+
+  const vars = ["temperature_2m", "cloud_cover", "wind_speed_10m", "pressure_msl", "precipitation", "weather_code", "is_day"];
+  const url = `${CONFIG.FORECAST_URL}?latitude=${place.latitude}&longitude=${place.longitude}` +
+    `&hourly=${vars.join(",")}&models=${CONFIG.MODEL}&forecast_days=6&timezone=auto&wind_speed_unit=ms`;
+  const r = await get(url);
+  if (r.status === 429) throw new Error("Too many requests to the weather service. Wait a minute and try again.");
+  if (!r.ok) throw new Error("The weather service didn't respond. Try again in a moment.");
+  const j = await r.json();
+
+  const h = j.hourly, tz = j.utc_offset_seconds || 0;
+  const toUnix = iso => Date.parse(iso + ":00Z") / 1000 - tz;      // local ISO string -> real unix seconds
+  const temp = mean(h, "temperature_2m"), clouds = mean(h, "cloud_cover"),
+        wind = mean(h, "wind_speed_10m"), press = mean(h, "pressure_msl"),
+        precip = mean(h, "precipitation"), code = control(h, "weather_code"), day = control(h, "is_day");
+
+  const nowLocal = new Date(Date.now() + tz * 1000).toISOString().slice(0, 13) + ":00";
+  let i = h.time.indexOf(nowLocal); if (i < 0) i = 0;
+  const [kind, text] = WMO(code[i]);
+
+  // sunrise/sunset from the day/night flag
+  const today = h.time[i].slice(0, 10);
+  let sunrise = null, sunset = null;
+  for (let n = 1; n < h.time.length && h.time[n].startsWith(today); n++) {
+    if (day[n - 1] === 0 && day[n] === 1 && sunrise === null) sunrise = toUnix(h.time[n]);
+    if (day[n - 1] === 1 && day[n] === 0 && sunset === null) sunset = toUnix(h.time[n]);
+  }
+
+  // daily min/max from the hourly series
+  const days = {};
+  h.time.forEach((t, n) => { (days[t.slice(0, 10)] = days[t.slice(0, 10)] || []).push(n); });
+  const daily = Object.keys(days).filter(d => d >= today).slice(0, 5).map(d => {
+    const idx = days[d], noon = idx.find(n => h.time[n].endsWith("T12:00")) ?? idx[Math.floor(idx.length / 2)];
+    const [k, t] = WMO(code[noon]);
+    const ts = idx.map(n => temp[n]);
+    return { ts: toUnix(h.time[noon]), min: Math.min(...ts), max: Math.max(...ts), kind: k, text: t };
+  });
+
+  return {
+    city: place.name, country: place.country_code || "", tz,
+    now: {
+      temp: temp[i], feels: temp[i], text, kind, isDay: day[i] === 1,
+      wind: wind[i], pressure: press[i], clouds: clouds[i],
+      precip24: precip.slice(i, i + 24).reduce((a, b) => a + (b || 0), 0)
+    },
+    sunrise, sunset,
+    hourly: Array.from({ length: 8 }, (_, n) => i + n * 3).filter(n => n < h.time.length)
+      .map(n => ({ ts: toUnix(h.time[n]), temp: temp[n], kind: WMO(code[n])[0] })),
+    daily
+  };
+}
+
+/* =========================================================
+   3. UI
+   ========================================================= */
+const $ = s => document.querySelector(s);
+const out = $("#out"), statusEl = $("#status"), qEl = $("#q");
+let units = "metric", data = null;
+
+const ICONS = {
+  clear:  '<circle cx="24" cy="24" r="8"/><path d="M24 6v6M24 36v6M6 24h6M36 24h6M11.3 11.3l4.2 4.2M32.5 32.5l4.2 4.2M11.3 36.7l4.2-4.2M32.5 15.5l4.2-4.2"/>',
+  clouds: '<path d="M14 36a8 8 0 0 1-.8-15.9A11 11 0 0 1 34.4 17 9.5 9.5 0 0 1 35 36z"/>',
+  rain:   '<path d="M14 28a8 8 0 0 1-.8-15.9A11 11 0 0 1 34.4 9 9.5 9.5 0 0 1 35 28z"/><path d="M16 34l-3 7M25 34l-3 7M34 34l-3 7"/>',
+  storm:  '<path d="M14 28a8 8 0 0 1-.8-15.9A11 11 0 0 1 34.4 9 9.5 9.5 0 0 1 35 28z"/><path d="M26 28l-6 8h8l-5 8"/>',
+  snow:   '<path d="M14 28a8 8 0 0 1-.8-15.9A11 11 0 0 1 34.4 9 9.5 9.5 0 0 1 35 28z"/><path d="M16 35v.1M24 38v.1M32 35v.1M20 42v.1M28 42v.1"/>',
+  fog:    '<path d="M8 16h32M12 24h28M8 32h32M14 40h22"/>'
+};
+const icon = k => `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[k] || ICONS.clouds}</svg>`;
+
+const T = c => Math.round(units === "metric" ? c : c * 9 / 5 + 32);
+const W = ms => units === "metric" ? `${Math.round(ms * 3.6)} km/h` : `${Math.round(ms * 2.237)} mph`;
+const P = mm => units === "metric" ? `${mm.toFixed(1)} mm` : `${(mm / 25.4).toFixed(2)} in`;
+const clock = (ts, tz) => new Date((ts + tz) * 1000).toISOString().slice(11, 16);
+const weekday = (ts, tz, i) => i === 0 ? "Today" : new Date((ts + tz) * 1000).toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" });
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+
+function render() {
+  if (!data) return;
+  const { now, tz } = data;
+  const nowS = Math.floor(Date.now() / 1000);
+  document.body.dataset.sky = `${now.kind}-${now.isDay ? "day" : "night"}`;
+  const label = data.country ? `, ${data.country}` : "";
+  out.innerHTML = `
+    <div class="hero">
+      <div>
+        <div class="place">${data.city}${label}</div>
+        <div class="when">${clock(nowS, tz)} local time</div>
+        <div class="temp">${T(now.temp)}<sup>°${units === "metric" ? "C" : "F"}</sup></div>
+        <div class="cond">${cap(now.text)}</div>
+        <span class="badge">Google WeatherNext 2 via Open-Meteo</span>
+      </div>
+      <div class="hero-icon">${icon(now.kind)}</div>
+    </div>
+
+    <section>
+      <h2>Next 24 hours</h2>
+      <div class="panel hourly">
+        ${data.hourly.map(h => `<div class="hour"><div class="t">${clock(h.ts, tz)}</div>${icon(h.kind)}<div class="v">${T(h.temp)}°</div></div>`).join("")}
+      </div>
+    </section>
+
+    <section>
+      <h2>Next 5 days</h2>
+      <div class="panel daily">
+        ${data.daily.map((d, i) => `<div class="day"><div class="name">${weekday(d.ts, tz, i)}</div>${icon(d.kind)}<div class="desc">${cap(d.text)}</div><div class="range"><i>${T(d.min)}°</i>${T(d.max)}°</div></div>`).join("")}
+      </div>
+    </section>
+
+    <section>
+      <h2>Conditions</h2>
+      <div class="panel facts">
+        <div class="fact"><div class="k">Cloud cover</div><div class="v">${Math.round(now.clouds)}%</div></div>
+        <div class="fact"><div class="k">Wind</div><div class="v">${W(now.wind)}</div></div>
+        <div class="fact"><div class="k">Pressure</div><div class="v">${Math.round(now.pressure)} hPa</div></div>
+        <div class="fact"><div class="k">Rain, next 24 h</div><div class="v">${P(now.precip24)}</div></div>
+        <div class="fact"><div class="k">Sunrise</div><div class="v">${data.sunrise ? clock(data.sunrise, tz) : "–"}</div></div>
+        <div class="fact"><div class="k">Sunset</div><div class="v">${data.sunset ? clock(data.sunset, tz) : "–"}</div></div>
+      </div>
+    </section>`;
+}
+
+async function load(city) {
+  statusEl.className = ""; statusEl.textContent = "Loading…";
+  try {
+    data = await fetchWeather(city);
+    statusEl.textContent = "";
+    try { localStorage.setItem("wx-city", city); } catch (e) {}
+    render();
+  } catch (err) {
+    statusEl.className = "error";
+    statusEl.textContent = err.message || "Something went wrong. Try again.";
+  }
+}
+
+$("#search").addEventListener("submit", e => {
+  e.preventDefault();
+  const v = qEl.value.trim();
+  if (v) load(v); else { statusEl.className = "error"; statusEl.textContent = "Type a city name to search."; }
+});
+
+$("#units").addEventListener("click", () => {
+  units = units === "metric" ? "imperial" : "metric";
+  document.querySelectorAll("#units span").forEach(s => s.classList.toggle("on", s.dataset.u === units));
+  try { localStorage.setItem("wx-units", units); } catch (e) {}
+  render();
+});
+
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+
+(function init() {
+  let city = CONFIG.DEFAULT_CITY;
+  try {
+    city = localStorage.getItem("wx-city") || city;
+    units = localStorage.getItem("wx-units") || units;
+  } catch (e) {}
+  document.querySelectorAll("#units span").forEach(s => s.classList.toggle("on", s.dataset.u === units));
+  load(city);
+})();
+</script>
+</body>
+</html>
