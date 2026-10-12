@@ -1,6 +1,6 @@
 {
-  "name": "Weather",
-  "short_name": "Weather",
+  "name": "Zeus-Hous",
+  "short_name": "ZeusHous",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
